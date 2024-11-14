@@ -1,0 +1,16 @@
+version: '1'
+services:
+  app:
+    build:
+      context: .
+      args:
+        Server_Host: "192.168.1.199"
+    ports:
+      - "8080:8080"  # 映射前端端口
+      - "3000:3000"  # 映射后端端口
+    environment:
+      - OMDB_API_KEY=#
+      - TMDB_API_KEY=#
+      - TMM_API_KEY=#
+      - EMBY_TOKEN=#
+      - ALIST_TOKEN=#
