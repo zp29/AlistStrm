@@ -9,8 +9,8 @@ services:
       - "8080:8080"  # 映射前端端口
       - "3000:3000"  # 映射后端端口
     environment:
-      - OMDB_API_KEY=#
-      - TMDB_API_KEY=#
-      - TMM_API_KEY=#
-      - EMBY_TOKEN=#
-      - ALIST_TOKEN=#
+      - OMDB_API_KEY=OTEzNDdjMTA=
+      - TMDB_API_KEY=ZjJmN2IwZTQ0MTk4NGNhZDY4MGQwMmJkMDM1ZjMxZjE=
+      - TMM_API_KEY=ZjhlYTIyOGUtMmNhZi00OGIwLTlhYWUtNzUwMWY4YTM0NTY4
+      - EMBY_TOKEN=NmRiYzkzYzEwMjczNDc2ZmFmZTJkZDkyY2E3ZjY3OGM=
+      - ALIST_TOKEN=YWxpc3QtMWMxNDc4YmYtOTNkZC00YzA3LWIxY2MtMDYyYTUxNTk2YzAzbzlMZFU4eGVkcmhJdW1hZjdNVERIZmg3ZThnazdsUUZRY1ljeHJvNG5TaHVFM1EzSDV3cEdUWUc4TG5vcXpwTg==

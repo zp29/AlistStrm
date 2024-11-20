@@ -62,7 +62,8 @@ export default {
 
         const VITE_Server_Host = import.meta.env?.VITE_Server_Host ?? '127.0.0.1'
         this.VITE_Server_Host = VITE_Server_Host 
-        this.host = VITE_Server_Host || window.location.hostname
+        // this.host = VITE_Server_Host || window.location.hostname
+        this.host = window.location.hostname
 
         console.log('App.vue this.host -> ', VITE_Server_Host, this.host)
 
