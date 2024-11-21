@@ -57,6 +57,7 @@ AlistStrm:
     - ALIST_TOKEN=...
 ```
 ```json
+// links.json
 [
     {
         "name": "更新115Mov",
