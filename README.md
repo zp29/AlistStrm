@@ -38,6 +38,7 @@ docker-compose up -d
 ```
 
 ```yml
+# docker-compose.yml
 AlistStrm:
   build:
     context: .
@@ -56,13 +57,16 @@ AlistStrm:
     - EMBY_TOKEN=...
     - ALIST_TOKEN=...
 ```
-```json
+
+```js
 // links.json
 [
     {
         "name": "更新115Mov",
-        "path": "/pan/115/mov", // Alist Path
-        "id": "3" // EmbyID
+        "path": "/pan/115/mov",
+        // Alist Path
+        "id": "3"
+        // EmbyID
     },
     {
       ...
