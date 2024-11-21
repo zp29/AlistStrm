@@ -63,8 +63,8 @@ export default {
         // const VITE_Server_Host = import.meta.env?.VITE_Server_Host ?? '127.0.0.1'
         // this.VITE_Server_Host = VITE_Server_Host 
         // this.host = VITE_Server_Host || window.location.hostname
-        this.host = window.location.hostname
-
+        this.host = window.location.hostname 
+        
         // console.log('App.vue this.host -> ', VITE_Server_Host, this.host)
 
         // setInterval(() => {
@@ -107,6 +107,8 @@ export default {
         },
         AlistOption() {
 
+            this.ListenerWebSocket()
+
             post(`http://${this.host}:3000/getLinks`, {})
                 .then(response => {
                     console.log('getLinks:', response.data.data)
@@ -141,8 +143,8 @@ export default {
                 this.AutoScroll()
             }
             ws.onmessage = (event) => {
+                console.log('WebSocket onmessage', message);
                 const message = JSON.parse(event.data);
-                // console.log('WebSocket onmessage', message);
                 switch (message.status) {
                     case 'start':
                         this.tipsText.push('文件总数: ' + message.total)
@@ -193,8 +195,10 @@ export default {
             else window.open(item.path)
         },
         AutoScroll() {
-            var element = document.querySelector(".tips")
-            element.scrollTop = element.scrollHeight;
+            // var element = document.querySelector(".tips")
+            // if (element) {
+            //     element.scrollTop = element.scrollHeight;
+            // }
         }
     },
 };

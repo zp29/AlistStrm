@@ -34,7 +34,7 @@ RUN sed -i "s|VITE_Server_Host=.*|VITE_Server_Host=$Server_Host|" /app/web/.env
 RUN cd web && npm run build
 
 # 公开前端和后端的端口
-EXPOSE 8080 3000
+EXPOSE 8080 3000 18095
 
 # 启动前后端服务
 CMD bash -c "cd /app/web/dist && http-server -p 8080 -s & cd /app/server && node app.js"

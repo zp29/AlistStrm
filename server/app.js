@@ -14,18 +14,34 @@ const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMM_API_KEY = process.env.TMM_API_KEY;
 const EMBY_TOKEN = process.env.EMBY_TOKEN;
-const ALIST_TOKEN = process.envALIST_TOKEN;
+const ALIST_TOKEN = process.env.ALIST_TOKEN;
 
 console.log('后端接受 变量 env -> ', process.env)
 console.log('前端 http://127.0.0.1:8080')
 console.log('后端 http://127.0.0.1:3000')
 
-const wss = new WebSocket.Server({ port: 18095 });
+const wss = new WebSocket.Server({ port: 18096, host: '0.0.0.0' });
+console.log('app.js wss -> ', wss)
+wss.on('open', () => {
+    console.log('WebSocket connection established');
+    ws.send('Hello, server!');
+});
 
+wss.on('message', (message) => {
+    console.log('Received:', message);
+});
+  
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+        ws.send(`Echo: ${message}`);
+    });
+});  
 // 配置Alist API信息
-const EMBY_API_URL = `${Server_Host}:8096`;
-const ALIST_API_URL = `${Server_Host}:5244`;
-const TMM_API_URL = `${Server_Host}:787`;
+const EMBY_API_URL = `http://${Server_Host}:8096`;
+const ALIST_API_URL = `http://${Server_Host}:5244`;
+const TMM_API_URL = `http://${Server_Host}:787`;
 
 app.post('/updateTMM', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
@@ -55,6 +71,9 @@ app.post('/getLinks', async (req, res) => {
             data: configArray
         })
     });
+
+    console.log('app.js wss.clients -> ', wss.clients)
+
 })
 
 /**
@@ -88,7 +107,7 @@ app.post('/generateStrm', async (req, res) => {
         await clearStrmFile(outputDir + alistPath);
 
         const files = await getVideoFiles(alistPath);
-        console.log(`generateStrm 更新Alist，${files.length}个文件`)
+        console.log(`generateStrm 更新Alist，${files.length}个文件夹`, wss.clients)
 
         // 发送开始消息
         wss.clients.forEach(client => {
@@ -96,6 +115,8 @@ app.post('/generateStrm', async (req, res) => {
                 client.send(JSON.stringify({ status: 'start', total: files.length }));
             }
         });
+
+        return
 
 
         console.log('generateStrm 开始创建Strm')
@@ -195,18 +216,17 @@ async function getVideoFiles(alistPath) {
 
         async function fetchFiles(path) {
             let refresh = !refreshArr.includes(path)
-            // console.log('generateStrm.js refresh -> ', path, refresh)
             const response = await axios.post(apiUrl, { path, refresh }, {
                 headers: {
                     'Authorization': ALIST_TOKEN,
                     'Content-Type': 'application/json'
                 }
             })
-
             refreshArr.push(path)
             refreshArr = [...new Set(refreshArr)]
             // console.log('generateStrm.js refreshArr -> ', refreshArr)
             const items = response?.data?.data?.content || [];
+            // console.log('generateStrm.js refresh -> ', apiUrl, path, refresh, response)
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ message: `${refresh} => ${path} -> 文件夹下的文件数量：${items.length}` }));
@@ -262,9 +282,7 @@ function clearStrmFile(dirPath, level = 6) {
             if (currentLevel > level) return Promise.resolve();
 
             return new Promise((res, rej) => {
-                fs.readdir(currentPath, (err, files) => {
-                    // console.log('generateStrm.js curreatPath -> ', currentPath, files.length)
-                    if (err) return rej(err);
+                readdirSync(currentPath).then((files) => {
 
                     let promises = files.map(file => {
                         let filePath = path.join(currentPath, file);
@@ -300,6 +318,25 @@ function clearStrmFile(dirPath, level = 6) {
 }
 
 // 创建目录
+async function readdirSync(dirPath) {
+    try {
+        // 尝试读取目录
+        const files = await fs.readdirSync(dirPath);
+        console.log(`目录内容:`, files);
+        return files;
+    } catch (err) {
+        // 如果是因为目录不存在，创建目录
+        if (err.code === 'ENOENT') {
+            console.log(`目录不存在，正在创建: ${dirPath}`);
+            await fs.mkdirSync(dirPath, { recursive: true });
+            console.log(`目录创建成功: ${dirPath}`);
+            return []; // 返回空数组，因为目录刚创建
+        } else {
+            // 如果是其他错误，抛出
+            throw err;
+        }
+    }
+}
 async function createDirRecursively(dir) {
     if (!fs.existsSync(dir)) {
         await fs.promises.mkdir(dir, { recursive: true });
