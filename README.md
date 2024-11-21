@@ -1,52 +1,72 @@
 # Alist Strm (todo...)
 
 <p align="center">
-  <span>English | <a href="./README.zh-CN.md">简体中文</a></span>
+  <span>中文 | <a href="./README.en.md">En</a></span>
 </p>
 
 ## Features
 
-+ ⚡️Automatically generate Strm
-+ ⚡️Automatically Notice Emby & tinyMediaManager
++ ⚡️ 通过path生成strm
++ ⚡️ 通知更新 Emby & tinyMediaManager
 
 
 ## Todo 
 
-- [ ] ⚡️Docker File
+- [ ] ⚡️ 定时更新
+- [ ] ⚡️ WEBHOOK
 
+## Use
 
-## ENV
-
-+ Web
-  + Server host
-+ Server
-
-
-### Development
-
-> Just run and visit http://localhost:3000
-
-```bash
-## install dependencies
-npm install
-
-## set up
-npm run dev
-```
+1. 网盘找资源
+2. 打开 http://${host}:8080?test=zp29
+3. 点击配置好的目录，自动更新emby&tmm
+4. 打开 emby
 
 ### Build
 
+>  http://${host}:8080
+
 ```bash
-## build
-npm run build
+touch links.json
+vim links.json
+
+touch docker-compose.yml
+vim docker-compose.yml # copy yal
+
+## set up
+docker-compose up -d
 ```
 
-## Achievement
+```yml
+AlistStrm:
+  build:
+    context: .
+    args:
+      Server_Host: "192.168.1.199"
+      # emby & tinyMediaManager 服务主机，默认端口8096, 787
+  ports:
+    - "8080:8080"  # 映射前端端口
+    - "3000:3000"  # 映射后端端口
+  volumes:
+    - ./links.json:/app/links.json
+  environment:
+    - OMDB_API_KEY=...
+    - TMDB_API_KEY=...
+    - TMM_API_KEY=...
+    - EMBY_TOKEN=...
+    - ALIST_TOKEN=...
+```
+```json
+[
+    {
+        "name": "更新115Mov",
+        "path": "/pan/115/mov", // Alist Path
+        "id": "3" // EmbyID
+    },
+    {
+      ...
+    }
+]
+```
 
-🎉 Added to the [Awesome Vite.Js](https://github.com/vitejs/awesome-vite#vue-2)
-
-## License
-
-[MIT](http://opensource.org/licenses/MIT)
-
-Copyright (c) 2022 ElanYoung
+> zp29

@@ -1,6 +1,8 @@
 # 使用官方Node.js 18镜像作为基础镜像
 FROM node:18 AS build
 
+LABEL README.md="https://raw.githubusercontent.com/zp29/AlistStrm/refs/heads/master/README.md"
+
 # 设置工作目录
 WORKDIR /app
 
