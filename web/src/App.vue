@@ -60,12 +60,12 @@ export default {
     },
     created() {
 
-        const VITE_Server_Host = import.meta.env?.VITE_Server_Host ?? '127.0.0.1'
-        this.VITE_Server_Host = VITE_Server_Host 
+        // const VITE_Server_Host = import.meta.env?.VITE_Server_Host ?? '127.0.0.1'
+        // this.VITE_Server_Host = VITE_Server_Host 
         // this.host = VITE_Server_Host || window.location.hostname
         this.host = window.location.hostname
 
-        console.log('App.vue this.host -> ', VITE_Server_Host, this.host)
+        // console.log('App.vue this.host -> ', VITE_Server_Host, this.host)
 
         // setInterval(() => {
         //     this.tipsText.push('test')
@@ -173,8 +173,8 @@ export default {
         updateModel(path, id, sizi) {
             this.ListenerWebSocket()
             const body = {
-                path: path,
-                id: id
+                alistPath: path,
+                embyItemId: id
             }
             if (sizi) {
                 body.sizi = sizi

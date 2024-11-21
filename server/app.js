@@ -64,7 +64,7 @@ app.post('/getLinks', async (req, res) => {
  */
 app.post('/generateStrm', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
-    const { alistPath, embyItemId, outputDir = '/Users/a29/Downloads/LocMedia/link' } = req.body;
+    const { alistPath, embyItemId, outputDir = '/app/outputDir' } = req.body;
 
     if (!alistPath) {
         res.send({ status: 'error', message: 'alistPath is required' });

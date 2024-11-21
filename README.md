@@ -40,11 +40,7 @@ docker-compose up -d
 ```yml
 # docker-compose.yml
 AlistStrm:
-  build:
-    context: .
-    args:
-      Server_Host: "192.168.1.199"
-      # emby & tinyMediaManager 服务主机，默认端口8096, 787
+  image: zp29/aliststrm
   ports:
     - "8080:8080"  # 映射前端端口
     - "3000:3000"  # 映射后端端口
