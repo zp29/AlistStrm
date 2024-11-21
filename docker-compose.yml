@@ -8,6 +8,8 @@ services:
     ports:
       - "8080:8080"  # 映射前端端口
       - "3000:3000"  # 映射后端端口
+    volumes:
+      - ./links.json:/app/links.json  # 将配置文件挂载到容器内
     environment:
       - OMDB_API_KEY=OTEzNDdjMTA=
       - TMDB_API_KEY=ZjJmN2IwZTQ0MTk4NGNhZDY4MGQwMmJkMDM1ZjMxZjE=

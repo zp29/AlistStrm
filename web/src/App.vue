@@ -106,34 +106,30 @@ export default {
             ]
         },
         AlistOption() {
+
+            post(`http://${this.host}:3000/getLinks`, {})
+                .then(response => {
+                    console.log('getLinks:', response.data.data)
+                    this.links = response?.data?.data ?? []
+                })
+                .catch(error => {
+                    console.error('getLinks error:', error)
+                    this.links = [
+                        {
+                            "name": "更新115Mov",
+                            "path": "/pan/115/mov",
+                            "id": "3"
+                        },
+                        {
+                            "name": "更新115Tv",
+                            "path": "/pan/115/tv",
+                            "id": "557"
+                        }, 
+                    ]
+                });
+
             this.showAdminSide = true
-            this.links = [
-                {
-                    name: '更新115Mov',
-                    path: 'action',
-                    action: 'update115Mov'
-                },
-                {
-                    name: '更新115Tv',
-                    path: 'action',
-                    action: 'update115Tv'
-                },
-                {
-                    name: '更新aliMov',
-                    path: 'action',
-                    action: 'updateAliMov'
-                },
-                {
-                    name: '更新aliTv',
-                    path: 'action',
-                    action: 'updateAliTv'
-                },
-                {
-                    name: '更新115Jav',
-                    path: 'action',
-                    action: 'update115Jav'
-                }
-            ]
+
         },
         ListenerWebSocket() {
             const WS_URL = `ws://${this.host}:18095`;
@@ -183,7 +179,7 @@ export default {
             if (sizi) {
                 body.sizi = sizi
             }
-            post(`http://${this.VITE_Server_Host}:3000/generateStrm`, body)
+            post(`http://${this.host}:3000/generateStrm`, body)
                 .then(response => {
                     console.log('POST request sent, server response:', response.data);
                 })
@@ -191,29 +187,10 @@ export default {
                     console.error('Error sending POST request:', error);
                 });
         },
-        updateAliMov() {
-            this.updateModel('/pan/ali/mov', '3')
-        },
-        updateAliTv() {
-            this.updateModel('/pan/ali/Tv', '557')
-        },
-        update115Jav() {
-            this.updateModel('/pan/115/jav', '17722', '1024 * 1024 * 100')
-        },
-        update115Mov() {
-            this.updateModel('/pan/115/mov', '3')
-        },
-        update115Tv() {
-            this.updateModel('/pan/115/tv', '557')
-        },
+
         JumpURL(item) {
-            let url = item.path
-            if (url == 'action') {
-                let action = item.action
-                this[action]()
-                return
-            }
-            window.open(url)
+            if(item.path && item.id) this.updateModel(item.path, item.id, item.sizi)
+            else window.open(item.path)
         },
         AutoScroll() {
             var element = document.querySelector(".tips")

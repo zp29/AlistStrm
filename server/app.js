@@ -40,6 +40,23 @@ app.post('/updateEmby', async (req, res) => {
     res.status(200).send({ status: notifyEmbyState ? 'success' : 'error' });
 })
 
+app.post('/getLinks', async (req, res) => {
+    res.header("Access-Control-Allow-Origin", "*");
+
+    const jsonPath = '/app/links.json';
+    fs.readFile(jsonPath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading config:', err);
+            return;
+        }
+        const configArray = JSON.parse(data);
+        res.status(200).send({
+            status: 'success',
+            data: configArray
+        })
+    });
+})
+
 /**
  * 生成strm文件的接口
  * @param {string} alistPath - 要扫描的Alist路径
@@ -159,10 +176,10 @@ app.post('/generateStrm', async (req, res) => {
     }
 })
 
-// const PORT = process.env.PORT || 8095;
-// app.listen(PORT, () => {
-//     console.log(`Server is running on port ${PORT}`);
-// });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    // console.log(`Server is running on port ${PORT}`);
+});
 
 
 /**

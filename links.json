@@ -1,0 +1,28 @@
+[
+    {
+        "name": "更新115Mov",
+        "path": "/pan/115/mov",
+        "id": "3"
+    },
+    {
+        "name": "更新115Tv",
+        "path": "/pan/115/tv",
+        "id": "557"
+    },
+    {
+        "name": "更新aliMov",
+        "path": "/pan/ali/mov",
+        "id": "3"
+    },
+    {
+        "name": "更新aliTv",
+        "path": "/pan/ali/Tv",
+        "id": "557"
+    },
+    {
+        "name": "更新115Jav",
+        "path": "/pan/115/jav",
+        "id": "17722",
+        "sizi": "1024 * 1024 * 100"
+    }
+]
