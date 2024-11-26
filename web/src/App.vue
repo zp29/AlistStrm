@@ -170,6 +170,15 @@ export default {
                 }
             }
         },
+        PostAPI(item) {
+            post(`http://${this.host}:3000/${item.apiPath}`, {alistPath:item.name})
+                .then(response => {
+                    console.log('POST request sent, server response:', response.data);
+                })
+                .catch(error => {
+                    console.error('Error sending POST request:', error);
+                });
+        },
         updateModel(path, id, sizi) {
             this.ListenerWebSocket()
             const body = {
@@ -190,6 +199,7 @@ export default {
 
         JumpURL(item) {
             if(item.path && item.id) this.updateModel(item.path, item.id, item.sizi)
+            else if(item.apiPath) this.PostAPI(item)
             else window.open(item.path)
         },
         AutoScroll() {

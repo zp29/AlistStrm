@@ -24,5 +24,30 @@
         "path": "/pan/115/jav",
         "id": "17722",
         "sizi": "1024 * 1024 * 100"
+    },
+
+    {
+        "name": "更新TMMTv",
+        "apiPath": "/updateTMM"
+    },
+    {
+        "name": "更新TMMMov",
+        "apiPath": "/updateTMM"
+    },
+    {
+        "name": "TMM重命名Tv",
+        "apiPath": "/updateTMM"
+    },
+    {
+        "name": "TMM重命名Mov",
+        "apiPath": "/updateTMM"
+    },
+    {
+        "name": "更新EmbyTv",
+        "apiPath": "/updateEmby"
+    },
+    {
+        "name": "更新EmbyMov",
+        "apiPath": "/updateEmby"
     }
 ]

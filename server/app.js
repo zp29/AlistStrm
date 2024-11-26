@@ -20,7 +20,16 @@ console.log('后端接受 变量 env -> ', process.env)
 console.log('前端 http://127.0.0.1:8080')
 console.log('后端 http://127.0.0.1:3000')
 
-const wss = new WebSocket.Server({ port: 18095 });
+const wss = new WebSocket.Server({ port: 18095, host: '0.0.0.0' });
+wss.on('open', () => {
+    console.log('WebSocket connection established');
+    wss.send('Hello, server!');
+});
+
+wss.on('message', (message) => {
+    console.log('Received:', message);
+});
+  
 
 // 配置Alist API信息
 const EMBY_API_URL = `${Server_Host}:8096`;
@@ -29,12 +38,14 @@ const TMM_API_URL = `${Server_Host}:787`;
 
 app.post('/updateTMM', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
+    const { alistPath } = req.body
     
     let TMMState = await notifyTMM(alistPath)
     res.status(200).send({ status: TMMState ? 'success' : 'error' });
 })
 app.post('/updateEmby', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
+    const { alistPath } = req.body
    
     let notifyEmbyState = await notifyEmby(embyItemId)
     res.status(200).send({ status: notifyEmbyState ? 'success' : 'error' });
@@ -369,11 +380,9 @@ async function notifyTMM(alistPath) {
 
     try{
         const updateResponse = await axios.post(updateApiPath, { action: 'update', scope: { name: 'all', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
-        // 可能要扫库，这里等待1秒
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    
-        const scrapeResponse = await axios.post(updateApiPath, { action: 'scrape', scope: { name: 'all', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const renameResponse = await axios.post(updateApiPath, { action: 'rename', scope: { name: 'new', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
+        const scrapeResponse = await axios.post(updateApiPath, { action: 'scrape', scope: { name: 'unscraped', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         return true;
     } catch {
