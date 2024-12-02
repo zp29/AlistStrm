@@ -105,20 +105,20 @@ app.post('/generateStrm', async (req, res) => {
            await clearStrmFile(outputDir + alistPath);
         } 
 
-        const files = await getVideoFiles(alistPath);
-        console.log(`generateStrm 更新Alist，${files.length}个文件`)
+        const { allFiles, newFiles } = await getVideoFiles(alistPath);
+        console.log(`generateStrm 更新Alist，总共${allFiles.length}个文件，新增${newFiles.length}个文件`);
 
         // 发送开始消息
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ status: 'start', total: files.length }));
+                client.send(JSON.stringify({ status: 'start', total: allFiles.length }));
             }
         });
 
 
         console.log('generateStrm 开始创建Strm')
-        for (let i = 0; i < files.length; i++) {
-            const video = files[i];
+        for (let i = 0; i < allFiles.length; i++) {
+            const video = allFiles[i];
             const videoFilePath = path.join(video.parent, video.name);
             const outputFilePath = path.join(outputDir, video.parent, `${path.basename(video.name, path.extname(video.name))}.strm`);
             const nfoFilePath = path.join(outputDir, video.parent, `${path.basename(video.name, path.extname(video.name))}.nfo`);
@@ -144,7 +144,7 @@ app.post('/generateStrm', async (req, res) => {
             // 发送进度更新
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ status: 'progress', total: files.length, current: i + 1, movie: video.name }));
+                    client.send(JSON.stringify({ status: 'progress', total: allFiles.length, current: i + 1, movie: video.name }));
                 }
             });
 
@@ -152,7 +152,7 @@ app.post('/generateStrm', async (req, res) => {
 
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ message: `共${files.length}个文件，生成Strmp完成` }));
+                client.send(JSON.stringify({ message: `共${allFiles.length}个文件，生成Strmp完成` }));
             }
         });
         console.log('generateStrm Strmp完成')
@@ -177,7 +177,7 @@ app.post('/generateStrm', async (req, res) => {
         // 发送完成消息
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ status: 'done', total: files.length }));
+                client.send(JSON.stringify({ status: 'done', total: allFiles.length }));
             }
         });
         res.status(200).send('strm and nfo files are being generated.');
@@ -211,30 +211,69 @@ async function getAlistPath(path = '') {
     const items = response?.data?.data?.content || [];
     return items
 }
+
+// 新增一个用于存储视频文件列表的JSON文件路径
+const VIDEO_FILES_CACHE = './videoFiles.json';
+
+/**
+ * 读取缓存的视频文件列表
+ */
+async function readCachedVideoFiles() {
+    try {
+        if (!fs.existsSync(VIDEO_FILES_CACHE)) {
+            return {};
+        }
+        const data = await fs.promises.readFile(VIDEO_FILES_CACHE, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        console.error('读取视频文件缓存失败:', error);
+        return {};
+    }
+}
+
+/**
+ * 保存视频文件列表到缓存
+ */
+async function saveVideoFilesCache(path, files) {
+    try {
+        const cache = await readCachedVideoFiles();
+        cache[path] = {
+            timestamp: Date.now(),
+            files: files
+        };
+        await fs.promises.writeFile(VIDEO_FILES_CACHE, JSON.stringify(cache, null, 2), 'utf8');
+    } catch (error) {
+        console.error('保存视频文件缓存失败:', error);
+    }
+}
+
 /**
  * 找到文件夹下的所有视频文件
  * @param {string} path - 文件夹路径
+ * @returns {Promise<{allFiles: Array, newFiles: Array}>}
  */
 async function getVideoFiles(alistPath) {
     try {
+        const apiUrl = `${ALIST_API_URL}/api/fs/list`;
+        let refreshArr = [];
+        let videoFiles = [];
 
-        const apiUrl = `${ALIST_API_URL}/api/fs/list`
-
-        let refreshArr = []
+        // 读取缓存的文件列表
+        const cache = await readCachedVideoFiles();
+        const cachedFiles = cache[alistPath]?.files || [];
 
         async function fetchFiles(path) {
-            let refresh = !refreshArr.includes(path)
-            // console.log('generateStrm.js refresh -> ', path, refresh)
+            let refresh = !refreshArr.includes(path);
             const response = await axios.post(apiUrl, { path, refresh }, {
                 headers: {
                     'Authorization': ALIST_TOKEN,
                     'Content-Type': 'application/json'
                 }
-            })
+            });
 
-            refreshArr.push(path)
-            refreshArr = [...new Set(refreshArr)]
-            // console.log('generateStrm.js refreshArr -> ', refreshArr)
+            refreshArr.push(path);
+            refreshArr = [...new Set(refreshArr)];
+            
             const items = response?.data?.data?.content || [];
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
@@ -242,42 +281,55 @@ async function getVideoFiles(alistPath) {
                 }
             });
 
-            let videoFiles = [];
-
             for (const item of items) {
                 const fullPath = path + '/' + item.name;
 
                 if (item.is_dir) {
-                    const nestedFiles = await fetchFiles(fullPath);
-                    videoFiles = videoFiles.concat(nestedFiles);
+                    await fetchFiles(fullPath);
                 } else if (item.type === 2) { // type 2 表示视频文件
                     videoFiles.push({
                         parent: path,
                         name: item.name,
                         is_dir: false,
                         size: item.size,
-                        type: item.type
+                        type: item.type,
+                        fullPath: fullPath // 添加完整路径用于对比
                     });
                 }
             }
-
-            return videoFiles;
         }
 
-        // return await fetchFiles(alistPath);
+        await fetchFiles(alistPath);
 
-        let list = await fetchFiles(alistPath);
-
-
-        list = list.map(item => {
-            let videoMinSIZE = item?.path?.includes('jav') ? 100 : 10
+        // 处理视频文件大小判断
+        videoFiles = videoFiles.map(item => {
+            let videoMinSIZE = item?.parent?.includes('jav') ? 100 : 10;
             item.isMainVideo = item.size > 1024 * 1024 * videoMinSIZE;
-            return item
+            return item;
         });
 
-        return list
-    } catch (error) {
+        // 找出新增的文件
+        const newFiles = videoFiles.filter(newFile => {
+            return !cachedFiles.some(cachedFile => 
+                cachedFile.fullPath === newFile.fullPath && 
+                cachedFile.size === newFile.size
+            );
+        });
 
+        // 保存新的文件列表到缓存
+        await saveVideoFilesCache(alistPath, videoFiles);
+
+        return {
+            allFiles: videoFiles,
+            newFiles: newFiles
+        };
+
+    } catch (error) {
+        console.error('获取视频文件列表失败:', error);
+        return {
+            allFiles: [],
+            newFiles: []
+        };
     }
 }
 

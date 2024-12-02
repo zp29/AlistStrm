@@ -249,6 +249,9 @@ export default {
             if (sizi) {
                 body.sizi = sizi
             }
+            if (initial) {
+                body.initial = initial
+            }
             post(`http://${this.host}:3000/generateStrm`, body)
                 .then(response => {
                     console.log('POST request sent, server response:', response.data);
@@ -264,8 +267,8 @@ export default {
             else window.open(item.path)
         },
         AutoScroll() {
-            var element = document.querySelector(".tips")
-            element.scrollTop = element.scrollHeight;
+            // var element = document.querySelector(".tips")
+            // element.scrollTop = element.scrollHeight;
         }
     },
 };
