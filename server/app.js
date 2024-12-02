@@ -9,16 +9,26 @@ const app = express();
 app.use(express.json());
 app.use(cors())
 
-const Server_Host = process.env.Server_Host || '127.0.0.1';
-const OMDB_API_KEY = process.env.OMDB_API_KEY;
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const TMM_API_KEY = process.env.TMM_API_KEY;
-const EMBY_TOKEN = process.env.EMBY_TOKEN;
-const ALIST_TOKEN = process.envALIST_TOKEN;
+const Server_Host = process.env.Server_Host == null ? 'http://openwrt.zp29.net' : '';
+// const OMDB_API_KEY = process.env.OMDB_API_KEY == null ? 'OTEzNDdjMTA=' : '';
+const TMDB_API_KEY = process.env.TMDB_API_KEY == null ? 'ZjJmN2IwZTQ0MTk4NGNhZDY4MGQwMmJkMDM1ZjMxZjE=' : '';
+const TMM_API_KEY = process.env.TMM_API_KEY == null ? 'ZjhlYTIyOGUtMmNhZi00OGIwLTlhYWUtNzUwMWY4YTM0NTY4' : '';
+const EMBY_TOKEN = process.env.EMBY_TOKEN == null ? 'NmRiYzkzYzEwMjczNDc2ZmFmZTJkZDkyY2E3ZjY3OGM=' : '';
+const ALIST_TOKEN = process.envALIST_TOKEN == null ? 'alist-1c1478bf-93dd-4c07-b1cc-062a51596c03o9LdU8xedrhIumaf7MTDHfh7e8gk7lQFQcYcxro4nShuE3Q3H5wpGTYG8LnoqzpN' : '';
+
+// 配置Alist API信息
+const EMBY_API_URL = process.env.EMBY_API_URL ? EMBY_API_URL : `${Server_Host}:8096`;
+const ALIST_API_URL = process.env.ALIST_API_URL ? ALIST_API_URL : `${Server_Host}:5244`;
+const TMM_API_URL = process.env.TMM_API_URL ? TMM_API_URL : `${Server_Host}:787`;
 
 console.log('后端接受 变量 env -> ', process.env)
 console.log('前端 http://127.0.0.1:8080')
 console.log('后端 http://127.0.0.1:3000')
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    // console.log(`Server is running on port ${PORT}`);
+});
 
 const wss = new WebSocket.Server({ port: 18095, host: '0.0.0.0' });
 wss.on('open', () => {
@@ -29,19 +39,13 @@ wss.on('open', () => {
 wss.on('message', (message) => {
     console.log('Received:', message);
 });
-  
-
-// 配置Alist API信息
-const EMBY_API_URL = `${Server_Host}:8096`;
-const ALIST_API_URL = `${Server_Host}:5244`;
-const TMM_API_URL = `${Server_Host}:787`;
 
 app.post('/updateTMM', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
     const { alistPath } = req.body
     
     let TMMState = await notifyTMM(alistPath)
-    res.status(200).send({ status: TMMState ? 'success' : 'error' });
+    res.status(200).send({ status: TMMState ? 'success' : 'error', TMMState });
 })
 app.post('/updateEmby', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
@@ -58,6 +62,7 @@ app.post('/getLinks', async (req, res) => {
     fs.readFile(jsonPath, 'utf8', (err, data) => {
         if (err) {
             console.error('Error reading config:', err);
+            res.status(200).send({ status: 'error', message: [] });
             return;
         }
         const configArray = JSON.parse(data);
@@ -75,7 +80,7 @@ app.post('/getLinks', async (req, res) => {
  */
 app.post('/generateStrm', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
-    const { alistPath, embyItemId, outputDir = '/app/outputDir' } = req.body;
+    const { alistPath, embyItemId, outputDir = '/app/outputDir', initial = false } = req.body;
 
     if (!alistPath) {
         res.send({ status: 'error', message: 'alistPath is required' });
@@ -96,7 +101,9 @@ app.post('/generateStrm', async (req, res) => {
         console.log('generateStrm 更新Alist')
         await updateAlist(alistPath);
 
-        await clearStrmFile(outputDir + alistPath);
+        if (initial) {
+           await clearStrmFile(outputDir + alistPath);
+        } 
 
         const files = await getVideoFiles(alistPath);
         console.log(`generateStrm 更新Alist，${files.length}个文件`)
@@ -123,10 +130,9 @@ app.post('/generateStrm', async (req, res) => {
 
             if (video.isMainVideo) {
                 await createStrmFile(outputFilePath, videoFilePath);
-
                 // console.log(`generateStrm 可以获取电影信息 -> ${video.name}`)
                 // 假装请求电影信息
-                await new Promise(resolve => setTimeout(resolve, 1));
+                // await new Promise(resolve => setTimeout(resolve, 1));
                 // // // 获取电影信息
                 // const movieInfo = await getMovieInfo(path.basename(video.name, path.extname(video.name)));
                 // // // 生成nfo文件
@@ -187,12 +193,24 @@ app.post('/generateStrm', async (req, res) => {
     }
 })
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    // console.log(`Server is running on port ${PORT}`);
+app.post('/getAlistPath', async (req, res) => {
+    const { path } = req.body;
+    const result = await getAlistPath(path);
+    res.status(200).send(result); 
 });
 
+async function getAlistPath(path = '') {
+    const apiUrl = `${ALIST_API_URL}/api/fs/list` 
 
+    const response = await axios.post(apiUrl, { path }, {
+        headers: {
+            'Authorization': ALIST_TOKEN,
+            'Content-Type': 'application/json'
+        }
+    })
+    const items = response?.data?.data?.content || [];
+    return items
+}
 /**
  * 找到文件夹下的所有视频文件
  * @param {string} path - 文件夹路径
@@ -385,8 +403,9 @@ async function notifyTMM(alistPath) {
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         return true;
-    } catch {
-        return false
+    } catch (error) {
+        console.error('notifyTMM error:', error);
+        return error
     }
 }
 // 通知emby更新

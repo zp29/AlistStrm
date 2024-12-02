@@ -13,7 +13,9 @@
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.4.3",
     "@skillnull/device-js": "^2.1.2",
+    "@vue/shared": "^3.5.13",
     "axios": "^1.4.0",
+    "element-ui": "^2.15.14",
     "vue": "^2.7.14",
     "vue-router": "^3.5.4",
     "vuex": "^3.6.2",
@@ -44,6 +46,8 @@
     "stylelint-config-standard": "^33.0.0",
     "stylelint-less": "^1.0.6",
     "stylelint-order": "^6.0.3",
+    "unplugin-auto-import": "^0.18.6",
+    "unplugin-vue-components": "^0.27.5",
     "vite": "^4.3.9",
     "vue-eslint-parser": "^9.3.0"
   },

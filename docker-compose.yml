@@ -13,7 +13,6 @@ services:
       - ./links.json:/app/links.json
       - ./outputDir:/app/outputDir
     environment:
-      - OMDB_API_KEY=OTEzNDdjMTA=
       - TMDB_API_KEY=ZjJmN2IwZTQ0MTk4NGNhZDY4MGQwMmJkMDM1ZjMxZjE=
       - TMM_API_KEY=ZjhlYTIyOGUtMmNhZi00OGIwLTlhYWUtNzUwMWY4YTM0NTY4
       - EMBY_TOKEN=NmRiYzkzYzEwMjczNDc2ZmFmZTJkZDkyY2E3ZjY3OGM=

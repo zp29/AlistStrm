@@ -1,5 +1,10 @@
 [
     {
+        "name": "guest",
+        "path": "/guest",
+        "id": "3"
+    },
+    {
         "name": "更新115Mov",
         "path": "/pan/115/mov",
         "id": "3"

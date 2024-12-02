@@ -21,8 +21,10 @@ import HelloWorld from './components/HelloWorld.vue';
                 <nav>
                     <a href="javascript:" @click="toAdmin" v-if="isAdmin">Admin</a>
                     <a href="javascript:" @click="AlistOption" v-if="isAdmin">AlistOption</a>
+                    <a href="javascript:" @click="PathOption">Path: {{cascaderValue}}</a>
+                    <el-cascader style="width: 50px;" v-if="isAdmin" v-model="value" @blur="handleBlur" @expand-change="handleExpandChange" :props="cascaderProps"></el-cascader>
                 </nav>
-
+                
             </div>
         </header>
 
@@ -50,7 +52,40 @@ export default {
             host: '',
             links: [],
             tipsText: [],
-            showAdminSide: false
+            showAdminSide: false,
+            value: [],
+            cascaderValue: '',
+            cascaderProps: {
+                lazy: true,
+                lazyLoad (node, resolve) {
+                    const { level } = node;
+                    console.log('App.vue node -> ', node)
+                    post(`http://${window.location.hostname}:3000/getAlistPath`, {path: node.path ? node.path.join('/') : ''}) 
+                        .then(response => {
+                            console.log('gegetAlistPathtLinks:', response.data)
+                            let nodes = [] 
+                            response.data.forEach(element => {
+                                if(element.is_dir){
+                                    nodes.push({
+                                        value: element.name,
+                                        label: element.name,
+                                        leaf: !element.is_dir
+                                    })
+                                }
+                            });
+                            resolve(nodes);
+                        })
+                    // setTimeout(() => {
+                    //     let nodes = [
+                    //         {
+                    //         value: level+1,
+                    //         label: `选项${level+1}`,
+                    //         leaf: level >= 2
+                    //     }]
+                    //     resolve(nodes);
+                    // }, 1000);
+                }
+            }
         };
     },
     computed: {
@@ -72,6 +107,19 @@ export default {
         // }, 500)
     },
     methods: {
+        handleBlur() {
+            this.cascaderValue = ''
+            // this.value = []
+        },
+        handleExpandChange(value) {
+            console.log('App.vue value -> ', value)
+            this.cascaderValue = value ? value.join('/') : ''
+            this.PathOption()
+            // this.value = value
+        },
+        // handleChange(value) {
+        //     console.log('App.vue handleChange value -> ', value)
+        // },
         toAdmin() {
             this.showAdminSide = true
             this.links = [
@@ -104,6 +152,19 @@ export default {
                     path: 'https://clm20240801.xn--yets15cv4k.com',
                 },
             ]
+        },
+        PathOption() {
+            console.log('App.vue PathOption -> ', this.cascaderValue)
+            this.showAdminSide = true
+            if(this.cascaderValue) {
+                this.links = [
+                    {
+                        name: `更新${this.cascaderValue}`,
+                        path: `/${this.cascaderValue}`,
+                        "id": "3"
+                    }
+                ]
+            }
         },
         AlistOption() {
 
@@ -171,7 +232,7 @@ export default {
             }
         },
         PostAPI(item) {
-            post(`http://${this.host}:3000/${item.apiPath}`, {alistPath:item.name})
+            post(`http://${this.host}:3000/${item.apiPath}`, item.apiBody)
                 .then(response => {
                     console.log('POST request sent, server response:', response.data);
                 })
