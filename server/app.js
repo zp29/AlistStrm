@@ -9,48 +9,47 @@ const app = express();
 app.use(express.json());
 app.use(cors())
 
-const Server_Host = process.env.Server_Host || '127.0.0.1';
-const OMDB_API_KEY = process.env.OMDB_API_KEY;
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const TMM_API_KEY = process.env.TMM_API_KEY;
-const EMBY_TOKEN = process.env.EMBY_TOKEN;
-const ALIST_TOKEN = process.env.ALIST_TOKEN;
+const Server_Host = process.env.Server_Host == null ? 'http://openwrt.zp29.net' : '';
+// const OMDB_API_KEY = process.env.OMDB_API_KEY == null ? 'OTEzNDdjMTA=' : '';
+const TMDB_API_KEY = process.env.TMDB_API_KEY == null ? 'ZjJmN2IwZTQ0MTk4NGNhZDY4MGQwMmJkMDM1ZjMxZjE=' : '';
+const TMM_API_KEY = process.env.TMM_API_KEY == null ? 'ZjhlYTIyOGUtMmNhZi00OGIwLTlhYWUtNzUwMWY4YTM0NTY4' : '';
+const EMBY_TOKEN = process.env.EMBY_TOKEN == null ? 'NmRiYzkzYzEwMjczNDc2ZmFmZTJkZDkyY2E3ZjY3OGM=' : '';
+const ALIST_TOKEN = process.envALIST_TOKEN == null ? 'alist-1c1478bf-93dd-4c07-b1cc-062a51596c03o9LdU8xedrhIumaf7MTDHfh7e8gk7lQFQcYcxro4nShuE3Q3H5wpGTYG8LnoqzpN' : '';
+
+// 配置Alist API信息
+const EMBY_API_URL = process.env.EMBY_API_URL ? EMBY_API_URL : `${Server_Host}:8096`;
+const ALIST_API_URL = process.env.ALIST_API_URL ? ALIST_API_URL : `${Server_Host}:5244`;
+const TMM_API_URL = process.env.TMM_API_URL ? TMM_API_URL : `${Server_Host}:787`;
 
 console.log('后端接受 变量 env -> ', process.env)
 console.log('前端 http://127.0.0.1:8080')
 console.log('后端 http://127.0.0.1:3000')
 
-const wss = new WebSocket.Server({ port: 18096, host: '0.0.0.0' });
-console.log('app.js wss -> ', wss)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    // console.log(`Server is running on port ${PORT}`);
+});
+
+const wss = new WebSocket.Server({ port: 18095, host: '0.0.0.0' });
 wss.on('open', () => {
     console.log('WebSocket connection established');
-    ws.send('Hello, server!');
+    wss.send('Hello, server!');
 });
 
 wss.on('message', (message) => {
     console.log('Received:', message);
 });
-  
-wss.on('connection', (ws) => {
-    console.log('Client connected');
-    ws.on('message', (message) => {
-        console.log('Received:', message);
-        ws.send(`Echo: ${message}`);
-    });
-});  
-// 配置Alist API信息
-const EMBY_API_URL = `http://${Server_Host}:8096`;
-const ALIST_API_URL = `http://${Server_Host}:5244`;
-const TMM_API_URL = `http://${Server_Host}:787`;
 
 app.post('/updateTMM', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
+    const { alistPath } = req.body
     
     let TMMState = await notifyTMM(alistPath)
-    res.status(200).send({ status: TMMState ? 'success' : 'error' });
+    res.status(200).send({ status: TMMState ? 'success' : 'error', TMMState });
 })
 app.post('/updateEmby', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
+    const { alistPath } = req.body
    
     let notifyEmbyState = await notifyEmby(embyItemId)
     res.status(200).send({ status: notifyEmbyState ? 'success' : 'error' });
@@ -63,6 +62,7 @@ app.post('/getLinks', async (req, res) => {
     fs.readFile(jsonPath, 'utf8', (err, data) => {
         if (err) {
             console.error('Error reading config:', err);
+            res.status(200).send({ status: 'error', message: [] });
             return;
         }
         const configArray = JSON.parse(data);
@@ -71,9 +71,6 @@ app.post('/getLinks', async (req, res) => {
             data: configArray
         })
     });
-
-    console.log('app.js wss.clients -> ', wss.clients)
-
 })
 
 /**
@@ -83,7 +80,7 @@ app.post('/getLinks', async (req, res) => {
  */
 app.post('/generateStrm', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
-    const { alistPath, embyItemId, outputDir = '/app/outputDir' } = req.body;
+    const { alistPath, embyItemId, outputDir = '/app/outputDir', initial = false } = req.body;
 
     if (!alistPath) {
         res.send({ status: 'error', message: 'alistPath is required' });
@@ -104,24 +101,24 @@ app.post('/generateStrm', async (req, res) => {
         console.log('generateStrm 更新Alist')
         await updateAlist(alistPath);
 
-        await clearStrmFile(outputDir + alistPath);
+        if (initial) {
+           await clearStrmFile(outputDir + alistPath);
+        } 
 
-        const files = await getVideoFiles(alistPath);
-        console.log(`generateStrm 更新Alist，${files.length}个文件夹`, wss.clients)
+        const { allFiles, newFiles } = await getVideoFiles(alistPath);
+        console.log(`generateStrm 更新Alist，总共${allFiles.length}个文件，新增${newFiles.length}个文件`);
 
         // 发送开始消息
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ status: 'start', total: files.length }));
+                client.send(JSON.stringify({ status: 'start', total: allFiles.length }));
             }
         });
 
-        return
-
 
         console.log('generateStrm 开始创建Strm')
-        for (let i = 0; i < files.length; i++) {
-            const video = files[i];
+        for (let i = 0; i < allFiles.length; i++) {
+            const video = allFiles[i];
             const videoFilePath = path.join(video.parent, video.name);
             const outputFilePath = path.join(outputDir, video.parent, `${path.basename(video.name, path.extname(video.name))}.strm`);
             const nfoFilePath = path.join(outputDir, video.parent, `${path.basename(video.name, path.extname(video.name))}.nfo`);
@@ -133,10 +130,9 @@ app.post('/generateStrm', async (req, res) => {
 
             if (video.isMainVideo) {
                 await createStrmFile(outputFilePath, videoFilePath);
-
                 // console.log(`generateStrm 可以获取电影信息 -> ${video.name}`)
                 // 假装请求电影信息
-                await new Promise(resolve => setTimeout(resolve, 1));
+                // await new Promise(resolve => setTimeout(resolve, 1));
                 // // // 获取电影信息
                 // const movieInfo = await getMovieInfo(path.basename(video.name, path.extname(video.name)));
                 // // // 生成nfo文件
@@ -148,7 +144,7 @@ app.post('/generateStrm', async (req, res) => {
             // 发送进度更新
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ status: 'progress', total: files.length, current: i + 1, movie: video.name }));
+                    client.send(JSON.stringify({ status: 'progress', total: allFiles.length, current: i + 1, movie: video.name }));
                 }
             });
 
@@ -156,7 +152,7 @@ app.post('/generateStrm', async (req, res) => {
 
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ message: `共${files.length}个文件，生成Strmp完成` }));
+                client.send(JSON.stringify({ message: `共${allFiles.length}个文件，生成Strmp完成` }));
             }
         });
         console.log('generateStrm Strmp完成')
@@ -181,7 +177,7 @@ app.post('/generateStrm', async (req, res) => {
         // 发送完成消息
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ status: 'done', total: files.length }));
+                client.send(JSON.stringify({ status: 'done', total: allFiles.length }));
             }
         });
         res.status(200).send('strm and nfo files are being generated.');
@@ -197,78 +193,143 @@ app.post('/generateStrm', async (req, res) => {
     }
 })
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    // console.log(`Server is running on port ${PORT}`);
+app.post('/getAlistPath', async (req, res) => {
+    const { path } = req.body;
+    const result = await getAlistPath(path);
+    res.status(200).send(result); 
 });
 
+async function getAlistPath(path = '') {
+    const apiUrl = `${ALIST_API_URL}/api/fs/list` 
+
+    const response = await axios.post(apiUrl, { path }, {
+        headers: {
+            'Authorization': ALIST_TOKEN,
+            'Content-Type': 'application/json'
+        }
+    })
+    const items = response?.data?.data?.content || [];
+    return items
+}
+
+// 新增一个用于存储视频文件列表的JSON文件路径
+const VIDEO_FILES_CACHE = './videoFiles.json';
+
+/**
+ * 读取缓存的视频文件列表
+ */
+async function readCachedVideoFiles() {
+    try {
+        if (!fs.existsSync(VIDEO_FILES_CACHE)) {
+            return {};
+        }
+        const data = await fs.promises.readFile(VIDEO_FILES_CACHE, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        console.error('读取视频文件缓存失败:', error);
+        return {};
+    }
+}
+
+/**
+ * 保存视频文件列表到缓存
+ */
+async function saveVideoFilesCache(path, files) {
+    try {
+        const cache = await readCachedVideoFiles();
+        cache[path] = {
+            timestamp: Date.now(),
+            files: files
+        };
+        await fs.promises.writeFile(VIDEO_FILES_CACHE, JSON.stringify(cache, null, 2), 'utf8');
+    } catch (error) {
+        console.error('保存视频文件缓存失败:', error);
+    }
+}
 
 /**
  * 找到文件夹下的所有视频文件
  * @param {string} path - 文件夹路径
+ * @returns {Promise<{allFiles: Array, newFiles: Array}>}
  */
 async function getVideoFiles(alistPath) {
     try {
+        const apiUrl = `${ALIST_API_URL}/api/fs/list`;
+        let refreshArr = [];
+        let videoFiles = [];
 
-        const apiUrl = `${ALIST_API_URL}/api/fs/list`
-
-        let refreshArr = []
+        // 读取缓存的文件列表
+        const cache = await readCachedVideoFiles();
+        const cachedFiles = cache[alistPath]?.files || [];
 
         async function fetchFiles(path) {
-            let refresh = !refreshArr.includes(path)
+            let refresh = !refreshArr.includes(path);
             const response = await axios.post(apiUrl, { path, refresh }, {
                 headers: {
                     'Authorization': ALIST_TOKEN,
                     'Content-Type': 'application/json'
                 }
-            })
-            refreshArr.push(path)
-            refreshArr = [...new Set(refreshArr)]
-            // console.log('generateStrm.js refreshArr -> ', refreshArr)
+            });
+
+            refreshArr.push(path);
+            refreshArr = [...new Set(refreshArr)];
+            
             const items = response?.data?.data?.content || [];
-            // console.log('generateStrm.js refresh -> ', apiUrl, path, refresh, response)
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ message: `${refresh} => ${path} -> 文件夹下的文件数量：${items.length}` }));
                 }
             });
 
-            let videoFiles = [];
-
             for (const item of items) {
                 const fullPath = path + '/' + item.name;
 
                 if (item.is_dir) {
-                    const nestedFiles = await fetchFiles(fullPath);
-                    videoFiles = videoFiles.concat(nestedFiles);
+                    await fetchFiles(fullPath);
                 } else if (item.type === 2) { // type 2 表示视频文件
                     videoFiles.push({
                         parent: path,
                         name: item.name,
                         is_dir: false,
                         size: item.size,
-                        type: item.type
+                        type: item.type,
+                        fullPath: fullPath // 添加完整路径用于对比
                     });
                 }
             }
-
-            return videoFiles;
         }
 
-        // return await fetchFiles(alistPath);
+        await fetchFiles(alistPath);
 
-        let list = await fetchFiles(alistPath);
-
-
-        list = list.map(item => {
-            let videoMinSIZE = item?.path?.includes('jav') ? 100 : 10
+        // 处理视频文件大小判断
+        videoFiles = videoFiles.map(item => {
+            let videoMinSIZE = item?.parent?.includes('jav') ? 100 : 10;
             item.isMainVideo = item.size > 1024 * 1024 * videoMinSIZE;
-            return item
+            return item;
         });
 
-        return list
-    } catch (error) {
+        // 找出新增的文件
+        const newFiles = videoFiles.filter(newFile => {
+            return !cachedFiles.some(cachedFile => 
+                cachedFile.fullPath === newFile.fullPath && 
+                cachedFile.size === newFile.size
+            );
+        });
 
+        // 保存新的文件列表到缓存
+        await saveVideoFilesCache(alistPath, videoFiles);
+
+        return {
+            allFiles: videoFiles,
+            newFiles: newFiles
+        };
+
+    } catch (error) {
+        console.error('获取视频文件列表失败:', error);
+        return {
+            allFiles: [],
+            newFiles: []
+        };
     }
 }
 
@@ -282,7 +343,9 @@ function clearStrmFile(dirPath, level = 6) {
             if (currentLevel > level) return Promise.resolve();
 
             return new Promise((res, rej) => {
-                readdirSync(currentPath).then((files) => {
+                fs.readdir(currentPath, (err, files) => {
+                    // console.log('generateStrm.js curreatPath -> ', currentPath, files.length)
+                    if (err) return rej(err);
 
                     let promises = files.map(file => {
                         let filePath = path.join(currentPath, file);
@@ -318,25 +381,6 @@ function clearStrmFile(dirPath, level = 6) {
 }
 
 // 创建目录
-async function readdirSync(dirPath) {
-    try {
-        // 尝试读取目录
-        const files = await fs.readdirSync(dirPath);
-        console.log(`目录内容:`, files);
-        return files;
-    } catch (err) {
-        // 如果是因为目录不存在，创建目录
-        if (err.code === 'ENOENT') {
-            console.log(`目录不存在，正在创建: ${dirPath}`);
-            await fs.mkdirSync(dirPath, { recursive: true });
-            console.log(`目录创建成功: ${dirPath}`);
-            return []; // 返回空数组，因为目录刚创建
-        } else {
-            // 如果是其他错误，抛出
-            throw err;
-        }
-    }
-}
 async function createDirRecursively(dir) {
     if (!fs.existsSync(dir)) {
         await fs.promises.mkdir(dir, { recursive: true });
@@ -406,15 +450,14 @@ async function notifyTMM(alistPath) {
 
     try{
         const updateResponse = await axios.post(updateApiPath, { action: 'update', scope: { name: 'all', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
-        // 可能要扫库，这里等待1秒
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    
-        const scrapeResponse = await axios.post(updateApiPath, { action: 'scrape', scope: { name: 'all', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const renameResponse = await axios.post(updateApiPath, { action: 'rename', scope: { name: 'new', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
+        const scrapeResponse = await axios.post(updateApiPath, { action: 'scrape', scope: { name: 'unscraped', } }, { headers: { 'api-key': TMM_API_KEY, 'Content-Type': 'application/json' } })
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         return true;
-    } catch {
-        return false
+    } catch (error) {
+        console.error('notifyTMM error:', error);
+        return error
     }
 }
 // 通知emby更新

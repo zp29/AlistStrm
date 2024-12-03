@@ -2,12 +2,21 @@ import { resolve } from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import vue2 from '@vitejs/plugin-vue2';
 
+import Components from 'unplugin-vue-components/vite';
+import { ElementUiResolver } from 'unplugin-vue-components/resolvers';
+
+
 export default ({ mode }) => {
   const { VITE_PORT, VITE_BASE_URL } = loadEnv(mode, process.cwd());
 
   return defineConfig({
     base: VITE_BASE_URL,
-    plugins: [vue2()],
+    plugins: [
+      vue2(),
+      Components({
+        resolvers: [ElementUiResolver()],
+      }),
+    ],
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
