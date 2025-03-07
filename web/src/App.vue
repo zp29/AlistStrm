@@ -161,14 +161,14 @@ export default {
                     {
                         name: `更新${this.cascaderValue}`,
                         path: `/${this.cascaderValue}`,
-                        "id": "3"
+                        "id": "3",
+                        initial: false
                     }
                 ]
             }
         },
         AlistOption() {
 
-            this.ListenerWebSocket()
 
             post(`http://${this.host}:3000/getLinks`, {})
                 .then(response => {
@@ -204,7 +204,11 @@ export default {
                 this.AutoScroll()
             }
             ws.onmessage = (event) => {
-                console.log('WebSocket onmessage', message);
+                if (this.tipsText.length > 300) {
+                    // 保留前10条，删除后面的
+                    this.tipsText = this.tipsText.slice(0, 10)
+                }
+                console.log('WebSocket onmessage', event);
                 const message = JSON.parse(event.data);
                 switch (message.status) {
                     case 'start':
@@ -234,6 +238,7 @@ export default {
             }
         },
         PostAPI(item) {
+            this.ListenerWebSocket()
             post(`http://${this.host}:3000/${item.apiPath}`, item.apiBody)
                 .then(response => {
                     console.log('POST request sent, server response:', response.data);
@@ -242,7 +247,7 @@ export default {
                     console.error('Error sending POST request:', error);
                 });
         },
-        updateModel(path, id, sizi) {
+        updateModel(path, id, sizi, initial) {
             this.ListenerWebSocket()
             const body = {
                 alistPath: path,
@@ -264,7 +269,7 @@ export default {
         },
 
         JumpURL(item) {
-            if(item.path && item.id) this.updateModel(item.path, item.id, item.sizi)
+            if(item.path && item.id) this.updateModel(item.path, item.id, item.sizi, item.initial)
             else if(item.apiPath) this.PostAPI(item)
             else window.open(item.path)
         },
@@ -444,7 +449,7 @@ h3 {
 }
 
 .list-complete-item {
-  transition: all 1s;
+  transition: transform 0s;
   display: inline-block;
   margin-right: 10px;
 }

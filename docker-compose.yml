@@ -6,17 +6,18 @@ services:
     #   args:
     #     Server_Host: "192.168.1.199"
     image: zp29/aliststrm
+    restart: always
     ports:
       - "8080:8080"  # 映射前端端口
       - "3000:3000"  # 映射后端端口
       - "18095:18095"  # 映射WebSocket
     volumes:
       - ./links.json:/app/links.json
-      - ./outputDir:/app/outputDir
+      - /Users/a29/Downloads/LocMedia/link:/app/outputDir
     environment:
-      - Server_Host=192.168.1.199
-      - OMDB_API_KEY=91347c10
+      - Server_Host=http://192.168.1.199
       - TMDB_API_KEY=f2f7b0e441984cad680d02bd035f31f1
       - TMM_API_KEY=f8ea228e-2caf-48b0-9aae-7501f8a34568
       - EMBY_TOKEN=6dbc93c10273476fafe2dd92ca7f678c
       - ALIST_TOKEN=alist-1c1478bf-93dd-4c07-b1cc-062a51596c03o9LdU8xedrhIumaf7MTDHfh7e8gk7lQFQcYcxro4nShuE3Q3H5wpGTYG8LnoqzpN
+      - outputDir=/app/outputDir

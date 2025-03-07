@@ -4,6 +4,20 @@
   <span>中文 | <a href="./README.en.md">En</a></span>
 </p>
 
+### 流程
+
+- 自动任务(定时 0 3,9,11,18,23 * * *)
+> 3点会清空缓存
+
+- 手动任务(telegram/web)
+
+the list of commands is invalid. Please use this format:
+
+updatestrm - 更新STRM
+resetstrm - 重建STR
+
+You can also send /empty to clear the list or keep it empty.
+
 ## Features
 
 + ⚡️ 通过path生成strm

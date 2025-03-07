@@ -1,8 +1,47 @@
 [
     {
+        "name": "autoMov",
+        "path": "/guest/Mov",
+        "auto": true
+    },
+    {
+        "name": "autoTv",
+        "path": "/guest/Tv",
+        "auto": true
+    },
+    {
+        "name": "autoSth",
+        "path": "/guest/Sth",
+        "auto": true
+    },
+    {
+        "name": "autoAmi",
+        "path": "/guest/Ami",
+        "auto": true
+    },
+    {
+        "name": "autoSth",
+        "path": "/guest/sth",
+        "auto": true
+    },
+    {
+        "name": "autoJav",
+        "path": "/115/Video/jav",
+        "auto": true
+    },
+    {
         "name": "guest",
         "path": "/guest",
         "id": "3"
+    },
+    {
+        "name": "更新Emby",
+        "apiBody": {},
+        "apiPath": "updateEmby"
+    },
+    {
+        "name": "更新TMM",
+        "apiPath": "updateTMM"
     },
     {
         "name": "更新115Mov",
@@ -29,30 +68,5 @@
         "path": "/pan/115/jav",
         "id": "17722",
         "sizi": "1024 * 1024 * 100"
-    },
-
-    {
-        "name": "更新TMMTv",
-        "apiPath": "/updateTMM"
-    },
-    {
-        "name": "更新TMMMov",
-        "apiPath": "/updateTMM"
-    },
-    {
-        "name": "TMM重命名Tv",
-        "apiPath": "/updateTMM"
-    },
-    {
-        "name": "TMM重命名Mov",
-        "apiPath": "/updateTMM"
-    },
-    {
-        "name": "更新EmbyTv",
-        "apiPath": "/updateEmby"
-    },
-    {
-        "name": "更新EmbyMov",
-        "apiPath": "/updateEmby"
     }
 ]
