@@ -3,148 +3,155 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const WebSocket = require('ws');
-var cors = require('cors');
-const { type } = require('os');
+const cors = require('cors');
 const schedule = require('node-schedule');
 const TelegramBot = require('node-telegram-bot-api');
 
+// Telegram Bot 配置
 const token = '7580922585:AAEg6t5WsExm86x5jiIygH-dqOnvPy5JuwA';
-// Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, { polling: true });
 
+// Express 应用配置
 const app = express();
 app.use(express.json());
-app.use(cors())
+app.use(cors());
 
+// 全局状态存储
+const songIdToUrl = {}; // 存储歌曲ID和URL的映射
+const userStates = {}; // 用户状态存储
 
-// 假设你用一个简单的对象来存储歌曲ID和URL的映射
-const songIdToUrl = {};
-const userStates = {};
-
-
-
-// Matches "/echo [whatever]"
-// bot.onText(/\/echo (.+)/, (msg, match) => {
-//     // 'msg' is the received Message from Telegram
-//     // 'match' is the result of executing the regexp above on the text content
-//     // of the message
-
-//     const chatId = msg.chat.id;
-//     const resp = match[1]; // the captured "whatever"
-
-//     // send back the matched "whatever" to the chat
-//     bot.sendMessage(chatId, resp);
-// });
-
-// Listen for any kind of message. There are different kinds of
-// messages.
-let currentChatId = null
+/**
+ * Telegram Bot 消息处理
+ * 负责处理所有来自用户的指令和交互
+ */
+let currentChatId = null;
 bot.on('message', async (msg) => {
-    // console.log('app.js msg -> ', msg)
     const chatId = msg.chat.id;
-    let username = msg.from.username;
-    if (username == 'aliensrt29') {
-        currentChatId = chatId;
-    } else {
-        bot.sendMessage(chatId, '你没有权限');
-        return
+    const messageText = msg.text;
+    const username = msg.from.username;
+    
+    // 权限验证
+    if (username !== 'aliensrt29') {
+        bot.sendMessage(chatId, '你没有权限使用此机器人');
+        return;
     }
-
-    // 检查用户状态，只有当用户输入时，才处理搜索请求
+    
+    currentChatId = chatId;
+    
+    // 处理特殊状态：搜索模式
     if (userStates[chatId] && userStates[chatId].action === 'searching') {
-        const query = msg.text; // 获取用户输入的内容
-        if (!query || query === '/cancel' || query === '/searchmp3') {
-            bot.sendMessage(chatId, '取消搜索');
-            delete userStates[chatId];
-            return
-        }
-        bot.sendMessage(chatId, `开始搜索音乐：${query}`);
-        getMusicList(msg.text)
-        // 清除用户状态
-        delete userStates[chatId];
-        return
+        handleSearchMode(chatId, messageText);
+        return;
     }
-
-    if(msg.text == "/cmsupdate"){
-        // 发送选择菜单给用户
-        bot.sendMessage(chatId, '请选择 CMS 服务：', {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { text: 'CMS1', callback_data: 'cms1' },
-                        { text: 'CMS2', callback_data: 'cms2' }
-                    ]
-                ]
-            }
-        });
-        return
+    
+    // 根据指令处理不同功能
+    switch (messageText) {
+        case '/cmsupdate':
+            // 发送CMS选择菜单
+            sendCmsMenu(chatId);
+            break;
+            
+        case '/searchmp3':
+            // 进入音乐搜索模式
+            startMusicSearch(chatId);
+            break;
+            
+        case '/automov':
+        case '/autotv':
+        case '/autoami':
+            // 指定类型的同步
+            bot.sendMessage(currentChatId, '开始同步strm');
+            autoGenerateStrm(messageText);
+            break;
+            
+        case '/updatestrm':
+            // 更新所有strm文件
+            bot.sendMessage(currentChatId, '开始同步strm');
+            autoGenerateStrm();
+            break;
+            
+        case '/clearstrm':
+            // 清除strm缓存
+            clearVideoFilesCache();
+            bot.sendMessage(currentChatId, 'strm缓存已清除');
+            break;
+            
+        case '/resetstrm':
+            // 重置并重新生成strm
+            bot.sendMessage(currentChatId, '开始重置strm');
+            clearVideoFilesCache();
+            autoGenerateStrm();
+            break;
+            
+        default:
+            // 未知命令
+            bot.sendMessage(currentChatId, '收到消息，但不是有效命令');
     }
-
-    if(msg.text == "/searchmp3"){
-        // 提示用户输入要搜索的音乐名称
-        bot.sendMessage(chatId, '请输入你想搜索的音乐名称：');
-
-        // 设置状态，让后续的消息都被当作搜索内容
-        userStates[chatId] = { action: 'searching' };
-        return
-    }
-
-    if(msg.text == "/automov"){
-        bot.sendMessage(currentChatId, '开始同步strm');
-        autoGenerateStrm(msg.text);
-        return
-    }
-    if(msg.text == "/autotv"){
-        bot.sendMessage(currentChatId, '开始同步strm');
-        autoGenerateStrm(msg.text);
-        return
-    }
-    if(msg.text == "/autoami"){
-        bot.sendMessage(currentChatId, '开始同步strm');
-        autoGenerateStrm(msg.text);
-        return
-    }
-    if(msg.text == "/updatestrm"){
-        bot.sendMessage(currentChatId, '开始同步strm');
-        autoGenerateStrm();
-        return
-    }
-
-    if(msg.text == "/clearstrm"){
-        clearVideoFilesCache();
-        return
-    }
-    if(msg.text == "/resetstrm"){
-        bot.sendMessage(currentChatId, '开始重置strm');
-        clearVideoFilesCache();
-        autoGenerateStrm();
-        return
-    }
-
-    // send a message to the chat acknowledging receipt of their message
-    bot.sendMessage(currentChatId, 'Received your message');
 });
 
+/**
+ * 处理音乐搜索模式
+ * @param {number} chatId - 用户的聊天ID
+ * @param {string} query - 搜索关键词
+ */
+function handleSearchMode(chatId, query) {
+    if (!query || query === '/cancel' || query === '/searchmp3') {
+        bot.sendMessage(chatId, '取消搜索');
+        delete userStates[chatId];
+        return;
+    }
+    
+    bot.sendMessage(chatId, `开始搜索音乐：${query}`);
+    getMusicList(query);
+    // 清除用户状态
+    delete userStates[chatId];
+}
+
+/**
+ * 发送CMS选择菜单
+ * @param {number} chatId - 用户的聊天ID
+ */
+function sendCmsMenu(chatId) {
+    bot.sendMessage(chatId, '请选择 CMS 服务：', {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: 'CMS1', callback_data: 'cms1' },
+                    { text: 'CMS2', callback_data: 'cms2' }
+                ]
+            ]
+        }
+    });
+}
+
+/**
+ * 启动音乐搜索模式
+ * @param {number} chatId - 用户的聊天ID
+ */
+function startMusicSearch(chatId) {
+    bot.sendMessage(chatId, '请输入你想搜索的音乐名称：');
+    // 设置状态，让后续的消息都被当作搜索内容
+    userStates[chatId] = { action: 'searching' };
+}
 
 
-const Server_Host = process.env.Server_Host == null ? 'http://openwrt.zp29.net' : process.env.Server_Host;
-// const OMDB_API_KEY = process.env.OMDB_API_KEY == null ? 'OTEzNDdjMTA=' : '';
-// const TMDB_API_KEY = process.env.TMDB_API_KEY == null ? 'ZjJmN2IwZTQ0MTk4NGNhZDY4MGQwMmJkMDM1ZjMxZjE=' : process.env.TMDB_API_KEY;
-const TMM_API_KEY = process.env.TMM_API_KEY == null ? 'f8ea228e-2caf-48b0-9aae-7501f8a34568' : process.env.TMM_API_KEY;
-const EMBY_TOKEN = process.env.EMBY_TOKEN == null ? '6dbc93c10273476fafe2dd92ca7f678c' : process.env.EMBY_TOKEN;
-const ALIST_TOKEN = process.env.ALIST_TOKEN == null ? 'alist-1c1478bf-93dd-4c07-b1cc-062a51596c03o9LdU8xedrhIumaf7MTDHfh7e8gk7lQFQcYcxro4nShuE3Q3H5wpGTYG8LnoqzpN' : process.env.ALIST_TOKEN;
 
-// 配置Alist API信息
-const EMBY_API_URL = process.env.EMBY_API_URL ? EMBY_API_URL : `http://emby.zp29.net:8096`;
-const ALIST_API_URL = process.env.ALIST_API_URL ? ALIST_API_URL : `http://alist.zp29.net:5344`;
-const TMM_API_URL = process.env.TMM_API_URL ? TMM_API_URL : `${Server_Host}:7878`;
+// API 配置信息
+const Server_Host = process.env.Server_Host || 'http://openwrt.zp29.net';
+const TMM_API_KEY = process.env.TMM_API_KEY || 'f8ea228e-2caf-48b0-9aae-7501f8a34568';
+const EMBY_TOKEN = process.env.EMBY_TOKEN || '6dbc93c10273476fafe2dd92ca7f678c';
+const ALIST_TOKEN = process.env.ALIST_TOKEN || 'alist-1c1478bf-93dd-4c07-b1cc-062a51596c03o9LdU8xedrhIumaf7MTDHfh7e8gk7lQFQcYcxro4nShuE3Q3H5wpGTYG8LnoqzpN';
+
+// API URL 配置
+const EMBY_API_URL = process.env.EMBY_API_URL || 'http://emby.zp29.net:8096';
+const ALIST_API_URL = process.env.ALIST_API_URL || 'http://alist.zp29.net:5344';
+const TMM_API_URL = process.env.TMM_API_URL || `${Server_Host}:7878`;
 
 const outputDir_path = process.env.outputDir
 
-console.log('后端接受 变量 env -> ', process.env)
-console.log('Server_Host -> ', Server_Host)
-console.log('前端 http://127.0.0.1:8080')
-console.log('后端 http://127.0.0.1:3000')
+console.log('API配置: Server_Host =', Server_Host)
+console.log('前端地址: http://127.0.0.1:8080')
+console.log('后端地址: http://127.0.0.1:3000')
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
@@ -181,7 +188,7 @@ app.post('/updateEmby', async (req, res) => {
 
 async function getMusicList(query) {
 
-    console.log('app.js getMusicList -> ', query)
+    
 
     try {
 
@@ -220,7 +227,7 @@ async function getMusicList(query) {
         // 构建键盘
         const inlineKeyboard = [];
         musicList.map((song, index) => {
-            console.log('app.js song -> ', song)
+            
             const songId = `song_${index}`; // 生成唯一的ID
             songIdToUrl[songId] = song.url; // 存储ID和URL的映射
             inlineKeyboard.push([{
@@ -238,7 +245,7 @@ async function getMusicList(query) {
 
     } catch (error) {
 
-        console.log('app.js getmusic error -> ', error)
+        console.error('getMusicList 错误:', error)
 
         return [{ text: '未找到相关音乐', url: '' }];
     }
@@ -249,7 +256,8 @@ bot.on('callback_query', (query) => {
     const callbackData = query.data;
     const songId = query.data;  // 获取按钮的callback_data（即歌曲的ID）
 
-    if(currentChatId != query.message.chat.id){
+    // 检查按钮回调权限
+if(currentChatId != query.message.chat.id){
         bot.sendMessage(query.message.chat.id, '你没有权限');
         return  
     }
@@ -272,16 +280,10 @@ bot.on('callback_query', (query) => {
     }
 
 
-    console.log('app.js callback_query -> ', query)
-      // 查找对应的URL
-    const url = songIdToUrl[songId];
-    console.log('app.js callback_query url -> ', url)
+    // 查找对应的URL
+const url = songIdToUrl[songId];
 
-    // 向 Telegram 发送回答，清除加载中的状态
-    // bot.answerCallbackQuery(query.id, {
-    //     text: '正在处理...', // 这里是可选的，你可以留空
-    //     show_alert: false // 如果想让这个消息弹出警告框可以设置为 true
-    // });
+    // 处理 Telegram 回答
 
     if (url) {
         // 将 URL 发送给用户
@@ -426,8 +428,7 @@ schedule.scheduleJob('0 3,11,18,21 * * *', async () => {
 });
 // autoGenerateStrm();
 
-// autoCopyFile();
-// console.log('app.js autoCopyFile -> ')
+// autoCopyFile 函数现在被 autoGenerateStrm 调用
 async function autoCopyFile() {
     // pan/115/Video/mov1 to pan/115/mov
     await CopyFn('/pan/115/Video/mov1', '/pan/115/mov')
@@ -492,8 +493,7 @@ async function autoGenerateStrm(autoName = '') {
     }
     console.log('定时获取 autoList 结果:', autoList);
 }
-// test
-// autoGenerateStrm()
+
 
 /**
  * 生成strm文件的接口
@@ -551,16 +551,7 @@ app.post('/generateStrm', async (req, res) => {
             // type  3   表示音频文件
             // type 5,0  表示png文件
             if (video.type !== 2 && video.type !== 3) {
-                console.log('generateStrm.js 跳过文件 -> ', video.name)
-                // const FilePath = path.join(video.parent, video.name);
-                // const outputFilePath = path.join(outputDir, video.parent, video.name);
-                // // 直接复制文件到输出目录
-                // await createDirRecursively(path.dirname(outputFilePath));
-
-                // // console.log('generateStrm.js 复制文件到输出目录 -> ', FilePath, outputFilePath)
-
-                // // await fs.promises.copyFile(FilePath, outputFilePath);
-                // await downloadAndCopyFile(FilePath, outputFilePath);
+                console.log('generateStrm.js 跳过非视频/音频文件 -> ', video.name);
             } else {
                 const videoFilePath = path.join(video.parent, video.name);
                 const outputFilePath = path.join(outputDir, video.parent, `${path.basename(video.name, path.extname(video.name))}.strm`);
@@ -568,19 +559,10 @@ app.post('/generateStrm', async (req, res) => {
                 // 创建必要的目录
                 await createDirRecursively(path.dirname(outputFilePath));
 
-                // console.log('generateStrm.js video.isMainVideo -> ', video.name, outputFilePath, video.isMainVideo)
+
 
                 if (video.isMainVideo) {
                     await createStrmFile(outputFilePath, videoFilePath);
-                    // console.log(`generateStrm 可以获取电影信息 -> ${video.name}`)
-                    // 假装请求电影信息
-                    // await new Promise(resolve => setTimeout(resolve, 1));
-                    // // // 获取电影信息
-                    // const movieInfo = await getMovieInfo(path.basename(video.name, path.extname(video.name)));
-                    // // // 生成nfo文件
-                    // console.log(`generateStrm 获取电影信息完成 -> ${movieInfo}`)
-                    // createNfoFile(nfoFilePath, movieInfo);
-                    // console.log(`generateStrm 创建电影信息完成 -> ${video.name}`)
                 }
             }
 
@@ -593,7 +575,7 @@ app.post('/generateStrm', async (req, res) => {
 
             if (currentPatDiv.parent !== video.parent) {
                 if (currentChatId) bot.sendMessage(currentChatId, `${alistPath} => 当前文件夹更新完成 -> ${video.parent} 文件数量：${currentPatDiv.length}`);
-                // // 发送进度更新当前文件夹更新完成
+                // 发送进度更新当前文件夹更新完成
                 wss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({ message: `当前文件夹更新完成 -> ${video.parent} 文件数量：${currentPatDiv.length}` }));
@@ -603,12 +585,6 @@ app.post('/generateStrm', async (req, res) => {
                     parent: video.parent,
                     length: 0
                 }
-                // // 发送进度更新
-                // wss.clients.forEach(client => {
-                //     if (client.readyState === WebSocket.OPEN) {
-                //         client.send(JSON.stringify({ status: 'progress', total: allFiles.length, current: i + 1, movie: video.name }));
-                //     }
-                // });
             }
 
         }
@@ -621,17 +597,7 @@ app.post('/generateStrm', async (req, res) => {
         console.log('generateStrm Strmp完成', new Date().toLocaleString())
         if (currentChatId) bot.sendMessage(currentChatId, `${alistPath} => geneaateStrm Strmp完成${new Date().toLocaleString()}`);
 
-        // let { updateResponse, renameResponse, scrapeResponse } = await notifyTMM(alistPath)
-        // console.log(`generateStrm 通知TMM ==  updateResponse:${updateResponse} renameResponse:${renameResponse} scrapeResponse:${scrapeResponse}`)
-
-        // let notifyEmbyState = await notifyEmby(embyItemId)
-        // notifyEmbyState ? console.log('generateStrm 通知Emby完成') : console.log('generateStrm 通知Emby失败')
-        // wss.clients.forEach(client => {
-        //     if (client.readyState === WebSocket.OPEN) {
-        //         let notMes = notifyEmbyState ? '通知Emby完成' : '通知Emby失败'
-        //         client.send(JSON.stringify({ message: `${notMes}，打开${EMBY_API_URL}查看` }));
-        //     }
-        // });
+        // 使用POST接口调用通知TMM和Emby，而不是在这里直接调用
 
         // 发送完成消息
         wss.clients.forEach(client => {
@@ -931,26 +897,7 @@ async function createStrmFile(outputPath, videoFilePath) {
 }
 
 
-// 获取电影信息
-// async function getMovieInfo(movieName) {
-//     const response = await axios.get(`http://www.omdbapi.com/?t=${encodeURIComponent(movieName)}&apikey=${OMDB_API_KEY}`);
-//     console.log('generateStrm.js response -> ', movieName, response)
-//     return response.data;
-// }
-// 获取电影信息
-// async function getMovieInfo(movieName) {
-//     const response = await axios.get(`https://api.themoviedb.org/3/search/movie`, {
-//         params: {
-//             api_key: TMDB_API_KEY,
-//             query: movieName,
-//             language: 'zh-CN'
-//         }
-//     });
-//     const results = response.data.results;
-//     console.log('generateStrm.js results -> ', movieName, results)
-//     results.sort((a, b) => b.popularity - a.popularity);
-//     return results.length > 0 ? results[0] : null;
-// }
+// 电影信息相关函数已移除，不再使用 OMDB/TMDB API
 
 // 更新alist目录
 async function updateAlist(alistPath) {
@@ -1066,69 +1013,6 @@ async function notifyEmby(embyItemId) {
     return response.status == 200 || response.status == 204;
 }
 
-// 生成info文件
-function createNfoFile(outputPath, movieInfo) {
-    const nfoContent = `
-      <movie>
-        <title>${movieInfo.title}</title>
-        <year>${new Date(movieInfo.release_date).getFullYear()}</year>
-        <rating>${movieInfo.vote_average}</rating>
-        <released>${movieInfo.release_date}</released>
-        <runtime>${movieInfo.runtime}</runtime>
-        <genre>${movieInfo.genre_ids.join(', ')}</genre>
-        <overview>${movieInfo.overview}</overview>
-        <language>${movieInfo.original_language}</language>
-        <poster>https://image.tmdb.org/t/p/original${movieInfo.poster_path}</poster>
-        <backdrop>https://image.tmdb.org/t/p/original${movieInfo.backdrop_path}</backdrop>
-        <popularity>${movieInfo.popularity}</popularity>
-        <vote_count>${movieInfo.vote_count}</vote_count>
-        <tmdb_id>${movieInfo.id}</tmdb_id>
-      </movie>
-    `;
-    fs.writeFileSync(outputPath, nfoContent.trim());
-}
-
-const downloadAndCopyFile = async (filePath, outputFilePath) => {
-    try {
-        // 检查目标文件是否已存在
-        if (fs.existsSync(outputFilePath)) {
-            console.log(`文件已存在，跳过复制: ${outputFilePath}`);
-            return;
-        }
-
-        // 创建临时目录
-        const tempDir = '../temp';
-        await createDirRecursively(tempDir);
-
-        // 从 Alist 下载文件
-        const response = await axios({
-            method: 'get',
-            url: `${ALIST_API_URL}/api/fs/get`,
-            headers: {
-                'Authorization': ALIST_TOKEN
-            },
-            params: {
-                path: filePath
-            },
-            responseType: 'stream'
-        });
-
-        // 保存到临时文件
-        const tempFilePath = path.join(tempDir, path.basename(filePath));
-        const writer = fs.createWriteStream(tempFilePath);
-        response.data.pipe(writer);
-
-        await new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
-
-        // 复制到目标位置
-        await fs.promises.copyFile(tempFilePath, outputFilePath);
-
-        // 删除临时文件
-        await fs.promises.unlink(tempFilePath);
-    } catch (error) {
-        console.error(`下载或复制文件失败: ${filePath}`, error);
-    }
-};
+// 注意: 以下函数已经移除，因为不再使用
+// createNfoFile - 用于生成电影信息文件
+// downloadAndCopyFile - 用于下载和复制文件
